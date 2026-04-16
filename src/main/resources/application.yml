@@ -1,0 +1,188 @@
+# ============================================================
+# IntelliDocs AI Platform — application.yml
+# Common config shared across all profiles
+# Secrets NEVER go here — use environment variables
+# ============================================================
+
+spring:
+  application:
+    name: intellidocs-ai
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  # ── Database ────────────────────────────────────────────
+  datasource:
+    url: ${DATASOURCE_URL:jdbc:postgresql://localhost:5432/intellidocs}
+    username: ${DATASOURCE_USERNAME:intellidocs}
+    password: ${DATASOURCE_PASSWORD:intellidocs_pass}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      pool-name: IntelliDocsHikariPool
+
+  # ── JPA ─────────────────────────────────────────────────
+  jpa:
+    hibernate:
+      ddl-auto: validate        # NEVER use create/update in prod. Flyway owns schema.
+    show-sql: false             # Set true in dev profile only
+    open-in-view: false         # IMPORTANT - prevents LazyInitializationException silently
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        default_batch_fetch_size: 20
+        jdbc:
+          batch_size: 50
+
+  # ── Flyway migrations ───────────────────────────────────
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    out-of-order: false
+
+  # ── Redis ───────────────────────────────────────────────
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:redis_pass}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 4
+          min-idle: 1
+
+  # ── RabbitMQ ────────────────────────────────────────────
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:intellidocs}
+    password: ${RABBITMQ_PASS:rabbitmq_pass}
+    listener:
+      simple:
+        prefetch: 1                    # Process one message at a time per consumer
+        default-requeue-rejected: false # Send to DLQ instead of requeue on failure
+
+  # ── File upload limits ──────────────────────────────────
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 20MB
+      max-request-size: 25MB
+
+  # ── Jackson (JSON) ──────────────────────────────────────
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+  # ── Threads (Java 21 virtual threads) ───────────────────
+  threads:
+    virtual:
+      enabled: true
+
+  # ── Spring AI ───────────────────────────────────────────
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4o-mini          # Cost-efficient. Change to gpt-4o for production.
+          temperature: 0.3            # Low temp for factual RAG responses
+          max-tokens: 2048
+      embedding:
+        options:
+          model: text-embedding-3-small  # 1536 dims, cheap, high quality
+
+# ── JWT ─────────────────────────────────────────────────────
+app:
+  jwt:
+    secret: ${JWT_SECRET}             # Min 64 chars, generated randomly
+    expiration-ms: 86400000           # 24 hours
+    refresh-expiration-ms: 604800000 # 7 days
+
+  # ── RAG tuning ──────────────────────────────────────────
+  rag:
+    chunk-size: 512                   # tokens per chunk
+    chunk-overlap: 50                 # overlap between adjacent chunks
+    top-k: 5                          # chunks to retrieve per query
+    similarity-threshold: 0.70        # minimum cosine similarity to include a chunk
+
+  # ── Agent config ────────────────────────────────────────
+  agent:
+    max-tool-calls: 5                 # prevent infinite loops
+    timeout-seconds: 30               # per tool call timeout
+    max-input-tokens: 8000            # reject requests above this
+
+  # ── RabbitMQ queue names ─────────────────────────────────
+  messaging:
+    document-ingestion-queue: document.ingestion
+    document-ingestion-dlq: document.ingestion.dlq
+    document-ingestion-exchange: document.exchange
+
+  # ── File storage ─────────────────────────────────────────
+  storage:
+    type: local                       # local | s3 (configure S3 props for prod)
+    local-path: ${STORAGE_PATH:/tmp/intellidocs/uploads}
+
+# ── Actuator (health, metrics) ──────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# ── SpringDoc OpenAPI / Swagger UI ──────────────────────────
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    try-it-out-enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+
+# ── Resilience4j ────────────────────────────────────────────
+resilience4j:
+  retry:
+    instances:
+      llm-call:
+        max-attempts: 3
+        wait-duration: 1s
+        retry-exceptions:
+          - org.springframework.web.client.ResourceAccessException
+          - java.net.SocketTimeoutException
+        exponential-backoff-multiplier: 2.0
+  circuitbreaker:
+    instances:
+      llm-service:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+
+# ── Logging ──────────────────────────────────────────────────
+logging:
+  level:
+    root: INFO
+    com.intellidocs: DEBUG
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{correlationId}] %logger{36} - %msg%n"
