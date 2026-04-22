@@ -27,13 +27,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     @Override
     protected  void doFilterInternal(HttpServletRequest request,
                                      @NotNull HttpServletResponse response,
-                                     @NotNull FilterChain FilterChain)  throws ServletException, IOException{
+                                     @NotNull FilterChain filterChain)  throws ServletException, IOException{
 
         String authHeader = request.getHeader("Authorization");
+        System.out.println("=== AUTH HEADER: " + request.getHeader("Authorization"));
 
         if(authHeader == null || !authHeader.startsWith("Bearer ")){
             //No token - just continue without setting authentication
-            FilterChain.doFilter(request, response);
+            filterChain.doFilter(request, response);
             return;
         }
 
@@ -64,7 +65,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             SecurityContextHolder.clearContext();
 
         }
-        FilterChain.doFilter(request, response);
+        filterChain.doFilter(request, response);
     }
 
 }
