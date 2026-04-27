@@ -1,10 +1,12 @@
 package com.intellidocs.intellidocs_ai.domain.entity;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
-
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -51,5 +53,10 @@ public class DocumentChunk {
 
     @CreationTimestamp
     private Instant createdAt;
+
+    @JsonIgnore
+    @Column(name = "search_vector", columnDefinition = "tsvector")
+    @JdbcTypeCode(SqlTypes.OTHER)
+    private Object searchVector; // For full-text search, generated from content. stored as raw PGobject, set via native SQL
 
 }

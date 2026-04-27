@@ -28,6 +28,7 @@ public class SecurityConfig {
     //public paths - no JWT required
     private  static final String[] PUBLIC_PATHS ={
             "/api/v1/auth/**",  //login, register, refresh
+            "api/v1/search/**",
             "/actuator/health",  //load balancer health checks
             "/actuator/info",
             "/swagger-ui/**", //API docs and swagger UI should be public for easy testing - we can add auth later if needed

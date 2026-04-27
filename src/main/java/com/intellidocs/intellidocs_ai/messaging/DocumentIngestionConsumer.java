@@ -59,7 +59,7 @@ public class DocumentIngestionConsumer {
             //Step 4 - Embed each chunk and save to DB
             for(ChunkingService.Chunk chunk : chunks) {
                 float[] vector = embeddingService.embed(chunk.content());
-                chunkRepository.save(
+                DocumentChunk saved = chunkRepository.save(
                         DocumentChunk.builder()
                                 .tenantId(message.getTenantId())
                                 .documentId(doc.getId())
@@ -69,6 +69,8 @@ public class DocumentIngestionConsumer {
                                 .tokenCount(chunk.tokenCount())
                                 .build()
                 );
+                // Populate tsvector after saving
+                chunkRepository.updateSearchVector(saved.getId());
             }
 
             //Step 5 - Mark as READY
