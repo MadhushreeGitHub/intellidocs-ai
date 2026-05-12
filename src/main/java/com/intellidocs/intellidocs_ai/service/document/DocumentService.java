@@ -3,6 +3,8 @@ package com.intellidocs.intellidocs_ai.service.document;
 import com.intellidocs.intellidocs_ai.config.RabbitMQConfig;
 import com.intellidocs.intellidocs_ai.domain.entity.Document;
 import com.intellidocs.intellidocs_ai.domain.enums.DocumentStatus;
+import com.intellidocs.intellidocs_ai.exception.DocumentNotFoundException;
+import com.intellidocs.intellidocs_ai.exception.DuplicateDocumentException;
 import com.intellidocs.intellidocs_ai.messaging.DocumentIngestionMessage;
 import com.intellidocs.intellidocs_ai.repository.DocumentRepository;
 import lombok.RequiredArgsConstructor;
@@ -42,8 +44,7 @@ public class DocumentService {
 
             // 2. Check for duplicate
             if (documentRepository.findByContentHash(hash).isPresent()) {
-                throw new IllegalStateException(
-                        "This document has already been uploaded");
+                throw new DuplicateDocumentException();
             }
 
             // 3. Save file to local storage
@@ -98,7 +99,7 @@ public class DocumentService {
                 .filter(doc -> doc.getTenantId().equals(tenantId)) // tenant check
                 .filter(doc -> doc.getDeletedAt() == null)          // not deleted
                 .orElseThrow(() ->
-                        new RuntimeException("Document not found"));
+                        new DocumentNotFoundException(id.toString()));
     }
 
     public void softDelete(UUID id, UUID tenantId) {

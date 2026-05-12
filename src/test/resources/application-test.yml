@@ -1,0 +1,52 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/intellidocs
+    username: intellidocs
+    password: intellidocs_pass
+
+  jpa:
+    hibernate:
+      ddl-auto: validate        # same as production — Flyway owns the schema
+    show-sql: true              # helpful to see queries in test output
+
+  flyway:
+    enabled: true               # Flyway runs migrations on test startup
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: redis_pass
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: intellidocs
+    password: rabbitmq_pass
+
+  ai:
+    openai:
+      api-key: sk-test-placeholder
+
+app:
+  jwt:
+    secret: intellidocs-super-secret-key-minimum-32-characters-long-change-in-prod
+    expiration-ms: 86400000
+  rag:
+    chunk-size: 512
+    chunk-overlap: 50
+    top-k: 5
+    similarity-threshold: 0.70
+  agent:
+    max-tool-calls: 5
+    timeout-seconds: 30
+    max-input-tokens: 8000
+  messaging:
+    document-ingestion-queue: document.ingestion
+    document-ingestion-dlq: document.ingestion.dlq
+    document-ingestion-exchange: document.exchange
+  storage:
+    type: local
+    local-path: C:/tmp/intellidocs/uploads

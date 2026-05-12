@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.Instant;
+import java.util.Map;
 
 
 @Getter
@@ -44,4 +45,11 @@ public class ApiResponse<T> {
     }
 
 
+    public static<T> ApiResponse<T> error(String validationFailedMessage, Object fieldErrors) {
+        return ApiResponse.<T>builder()
+                .success(false)
+                .message(validationFailedMessage)
+                .errors(fieldErrors)
+                .build();
+    }
 }
