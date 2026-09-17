@@ -58,6 +58,24 @@ public interface DocumentChunkRepository extends JpaRepository<DocumentChunk, UU
     List<DocumentChunk> findByFullTextSearch(@Param("tenantId")UUID tenantId,
                                              @Param("query") String query,
                                              @Param("topK") int topK);
+
+
+
+    /// Semantic search WITH similarity score (Day 9) - threshold applied in java
+    @Query(value = """
+        SELECT  id, tenant_id, document_id, chunk_index, content,
+                page_number, token_count,
+                created_at, NULL::float4[] AS embedding,
+                search_vector,
+                1 - (embedding <=> CAST(:queryVector AS vector)) AS similarity
+        FROM document_chunks
+        WHERE tenant_id = CAST(:tenantId AS UUID)
+        ORDER BY similarity DESC
+        LIMIT :topK
+        """, nativeQuery = true)
+    List<Object[]> findSimilarChunksScored(@Param("tenantId") UUID tenantId,
+                                           @Param("queryVector") String queryVector,
+                                           @Param("topK") int topK);
 }
 
 

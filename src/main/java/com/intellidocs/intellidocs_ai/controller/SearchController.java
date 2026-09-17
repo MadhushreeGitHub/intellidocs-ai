@@ -24,7 +24,7 @@ public class SearchController {
     private final SearchService searchService;
     private final EmbeddingService embeddingService;
 
-    // Lexical search — keyword matching
+    /// Lexical search — keyword matching
     @GetMapping("/lexical")
     public ResponseEntity<ApiResponse<List<DocumentChunk>>> lexical(@RequestParam String query) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
@@ -32,14 +32,26 @@ public class SearchController {
         return ResponseEntity.ok(ApiResponse.ok(results.size() + " results found", results));
     }
 
-    //Semantic search meaning based
+    ///Semantic search meaning based
     @GetMapping("/semantic")
-    public ResponseEntity<ApiResponse<List<DocumentChunk>>> semantic(@RequestParam String query) {
+    public ResponseEntity<ApiResponse<List<SearchResultDto>>> semantic(@RequestParam String query) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         // Embed the query using the same embedding method as documents
         float[] queryVector = embeddingService.embed(query);
-        List<DocumentChunk> results = searchService.semanticSearch(tenantId, queryVector);
-        return ResponseEntity.ok(ApiResponse.ok(results.size() + " results found", results));
+        List<SearchResultDto> results =searchService.semanticSearch(tenantId,queryVector)
+                .stream()
+                .map(scored -> SearchResultDto.builder()
+                        .chunkId(scored.chunk().getId())
+                        .documentId(scored.chunk().getDocumentId())
+                        .chunkIndex(scored.chunk().getChunkIndex())
+                        .content(scored.chunk().getContent())
+                        .score(Math.round(scored.score() * 10000.0) / 10000.0) // Round score for readability
+                        .retrievalPath("Semantic")
+                        .build())
+                .toList();
+
+        return ResponseEntity.ok(ApiResponse.ok(results.size()
+            + " semantic results found", results));
      }
 
      //// Hybrid — best of both worlds
@@ -55,6 +67,7 @@ public class SearchController {
                         .chunkIndex(scored.chunk().getChunkIndex())
                         .content(scored.chunk().getContent())
                         .score(Math.round(scored.score() * 10000.0) / 10000.0) // Round score for readability
+                        .retrievalPath("hybrid")
                         .build())
                 .toList();
         return ResponseEntity.ok(ApiResponse.ok(results.size() + "hybrid results found", results));

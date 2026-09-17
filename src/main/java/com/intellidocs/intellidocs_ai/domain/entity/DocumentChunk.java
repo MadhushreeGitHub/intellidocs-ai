@@ -42,7 +42,7 @@ public class DocumentChunk {
 
     // 1536-dimension vector from OpenAI ada-002
     // Stored as pgvector type — requires pgvector JDBC extension
-    @Column(columnDefinition = "vector(1536)")
+    @Column(columnDefinition = "vector(768)") //// ← was vector(1536) now 768 due ollama
     private float[] embedding;
 
     @Column(name = "page_number")

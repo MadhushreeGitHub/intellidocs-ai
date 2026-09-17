@@ -7,6 +7,9 @@
 spring:
   application:
     name: intellidocs-ai
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.autoconfigure.openai.OpenAiAutoConfiguration
 
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
@@ -94,14 +97,22 @@ spring:
 
   # ── Spring AI ───────────────────────────────────────────
   ai:
+    ollama:
+      base-url: http://localhost:11434
+      embedding:
+        enabled: true
+        options:
+          model: nomic-embed-text
     openai:
-      api-key: ${OPENAI_API_KEY}
+      api-key: ${OPENAI_API_KEY:disabled}
       chat:
+        enabled: false
         options:
           model: gpt-4o-mini          # Cost-efficient. Change to gpt-4o for production.
           temperature: 0.3            # Low temp for factual RAG responses
           max-tokens: 2048
       embedding:
+        enabled: false
         options:
           model: text-embedding-3-small  # 1536 dims, cheap, high quality
 
@@ -117,7 +128,7 @@ app:
     chunk-size: 512                   # tokens per chunk
     chunk-overlap: 50                 # overlap between adjacent chunks
     top-k: 5                          # chunks to retrieve per query
-    similarity-threshold: 0.70        # minimum cosine similarity to include a chunk
+    similarity-threshold: 0.45        # minimum cosine similarity to include a chunk
 
   # ── Agent config ────────────────────────────────────────
   agent:

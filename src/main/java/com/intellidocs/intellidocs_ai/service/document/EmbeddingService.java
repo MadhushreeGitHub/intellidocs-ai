@@ -4,6 +4,7 @@ package com.intellidocs.intellidocs_ai.service.document;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -57,37 +58,33 @@ public class EmbeddingService {
  * Mock Embedding
  */
 
+
+
 @Slf4j
 @Service
 public class EmbeddingService {
 
-    private static final int DIMENSION = 1536;
+    private final EmbeddingModel embeddingModel;
+
+    public EmbeddingService(
+            @Qualifier("ollamaEmbeddingModel") EmbeddingModel embeddingModel) {
+        this.embeddingModel = embeddingModel;
+    }
 
     public float[] embed(String text) {
-        // MOCK — generates deterministic vector from text hashcode
-        // Same text always produces same vector — consistent but not semantic
-        // Replace with real EmbeddingModel when OpenAI credits are added
-        float[] vector = new float[DIMENSION];
-        Random random = new Random(text.hashCode());
-        float magnitude = 0f;
-
-        for (int i = 0; i < DIMENSION; i++) {
-            vector[i] = random.nextFloat() * 2 - 1; // range [-1, 1]
-            magnitude += vector[i] * vector[i];
+        try {
+            float[] vector = embeddingModel.embed(text);
+            log.debug("Generated embedding — {} dimensions", vector.length);
+            return vector;
+        } catch (Exception e) {
+            log.error("Embedding failed: {}", e.getMessage());
+            throw new RuntimeException("Embedding generation failed", e);
         }
-
-        // Normalize to unit vector — same as real embeddings
-        // Cosine similarity only works correctly with unit vectors
-        magnitude = (float) Math.sqrt(magnitude);
-        for (int i = 0; i < DIMENSION; i++) {
-            vector[i] /= magnitude;
-        }
-
-        log.debug("Generated mock embedding for text of length {}", text.length());
-        return vector;
     }
 
     public List<float[]> embedBatch(List<String> texts) {
-        return texts.stream().map(this::embed).toList();
+        return texts.stream()
+                .map(this::embed)
+                .toList();
     }
 }
