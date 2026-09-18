@@ -103,6 +103,8 @@ spring:
         enabled: true
         options:
           model: nomic-embed-text
+      init:
+        timeout: 60s          # give the model time to load
     openai:
       api-key: ${OPENAI_API_KEY:disabled}
       chat:
@@ -125,8 +127,8 @@ app:
 
   # ── RAG tuning ──────────────────────────────────────────
   rag:
-    chunk-size: 512                   # tokens per chunk
-    chunk-overlap: 50                 # overlap between adjacent chunks
+    chunk-size: 200                   # tokens per chunk
+    chunk-overlap: 30                # overlap between adjacent chunks
     top-k: 5                          # chunks to retrieve per query
     similarity-threshold: 0.45        # minimum cosine similarity to include a chunk
 
