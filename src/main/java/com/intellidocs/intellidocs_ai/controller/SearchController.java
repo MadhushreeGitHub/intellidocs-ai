@@ -4,6 +4,7 @@ import com.intellidocs.intellidocs_ai.common.ApiResponse;
 import com.intellidocs.intellidocs_ai.domain.entity.DocumentChunk;
 import com.intellidocs.intellidocs_ai.dto.SearchResultDto;
 import com.intellidocs.intellidocs_ai.service.document.EmbeddingService;
+import com.intellidocs.intellidocs_ai.service.rag.ChatService;
 import com.intellidocs.intellidocs_ai.service.rag.PromptBuilderService;
 import com.intellidocs.intellidocs_ai.service.search.SearchService;
 import com.intellidocs.intellidocs_ai.tenant.TenantContext;
@@ -24,7 +25,7 @@ public class SearchController {
 
     private final SearchService searchService;
     private final EmbeddingService embeddingService;
-
+    private final ChatService chatService;
     // add to the field list at the top of SearchController:
     private final PromptBuilderService promptBuilderService;
 
@@ -89,6 +90,24 @@ public class SearchController {
         String prompt = promptBuilderService.buildPrompt(query, chunks);
         return ResponseEntity.ok(ApiResponse.ok(chunks.size() + " chunks used", prompt));
 
+    }
+
+    //Day 12: Full RAG - Retrive -> build prompt -> generate answer
+    @GetMapping("/ask")
+    public ResponseEntity<ApiResponse<String>> ask(@RequestParam String query) {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+
+        //1. RETRIVE( threshold-filtered)
+        float[] queryVector = embeddingService.embed(query);
+        List<SearchService.ScoredChunk> retrivedChunks = searchService.semanticSearch(tenantId, queryVector);
+
+        //2. AUGMENT (build prompt)
+        String prompt = promptBuilderService.buildPrompt(query, retrivedChunks);
+
+        //3. GENERATE(LLM answers)
+        String answer = chatService.generateAnswer(prompt);
+
+        return ResponseEntity.ok(ApiResponse.ok("Answer generated", answer));
     }
 
 

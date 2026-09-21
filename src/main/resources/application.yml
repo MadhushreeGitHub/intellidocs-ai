@@ -10,7 +10,6 @@ spring:
   autoconfigure:
     exclude:
       - org.springframework.ai.autoconfigure.openai.OpenAiAutoConfiguration
-
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 
@@ -103,6 +102,11 @@ spring:
         enabled: true
         options:
           model: nomic-embed-text
+      chat:
+        enabled: true
+        options:
+          model: gemma3     #chat model for generation
+          temperature: 0.3  #low = factual, less creative (good for RAG)
       init:
         timeout: 60s          # give the model time to load
     openai:
