@@ -4,6 +4,7 @@ import com.intellidocs.intellidocs_ai.common.ApiResponse;
 import com.intellidocs.intellidocs_ai.domain.entity.DocumentChunk;
 import com.intellidocs.intellidocs_ai.dto.SearchResultDto;
 import com.intellidocs.intellidocs_ai.service.document.EmbeddingService;
+import com.intellidocs.intellidocs_ai.service.rag.PromptBuilderService;
 import com.intellidocs.intellidocs_ai.service.search.SearchService;
 import com.intellidocs.intellidocs_ai.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,9 @@ public class SearchController {
 
     private final SearchService searchService;
     private final EmbeddingService embeddingService;
+
+    // add to the field list at the top of SearchController:
+    private final PromptBuilderService promptBuilderService;
 
     /// Lexical search — keyword matching
     @GetMapping("/lexical")
@@ -73,4 +77,19 @@ public class SearchController {
         return ResponseEntity.ok(ApiResponse.ok(results.size() + "hybrid results found", results));
 
     }
+
+    //add this method - Day 11: preview the assembled RAG prompt (no LLM call yet)
+    @GetMapping("/rag-preview")
+    public ResponseEntity<ApiResponse<String>> ragPreview(@RequestParam String query) {
+        UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+
+        float[] queryVector = embeddingService.embed(query);
+        // Reuse Day 9's threshold-filtered semantic search as the context source
+        var chunks = searchService.semanticSearch(tenantId, queryVector);
+        String prompt = promptBuilderService.buildPrompt(query, chunks);
+        return ResponseEntity.ok(ApiResponse.ok(chunks.size() + " chunks used", prompt));
+
+    }
+
+
 }
