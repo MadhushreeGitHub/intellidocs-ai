@@ -135,6 +135,7 @@ app:
     chunk-overlap: 30                # overlap between adjacent chunks
     top-k: 5                          # chunks to retrieve per query
     similarity-threshold: 0.45        # minimum cosine similarity to include a chunk
+    history-turns: 3
 
   # ── Agent config ────────────────────────────────────────
   agent:

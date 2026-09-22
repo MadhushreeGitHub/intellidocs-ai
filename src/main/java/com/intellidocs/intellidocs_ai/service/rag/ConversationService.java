@@ -11,6 +11,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -24,26 +25,38 @@ public class ConversationService {
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
 
+    @Value("${app.rag.history-turns:3}")
+    private String historyTurns; //how many recent messages to include
+
+    //Load the most recent messages for a conversation, oldest first for the prompt
+    public List<Message> getRecentHistory(UUID conversationId) {
+        var pageable = org.springframework.data.domain.PageRequest.of(0, Integer.parseInt(historyTurns) * 2); // *2: user+assistant per turn
+        List<Message> recent = messageRepository.findByConversationIdOrderByCreatedAtDesc(conversationId, pageable);
+        java.util.Collections.reverse(recent); //back to chronological order
+        return recent;
+    }
+
     // Saves one full Q&A turn: the user question, the assistant answer,
     // and one message_sources row per chunk the answer cited.
     // @Transactional: all writes succeed together or none do
     @Transactional
-    public UUID saveTurn(UUID tenantId, UUID userId,
+    public UUID saveTurn(UUID tenantId, UUID userId,UUID conversationId,
                          String question, String answer, List<SearchService.ScoredChunk> citedChunks) {
 
         // 1. Create the conversation (Day 13: one turn = one new conversation;
         //    Day 14 will reuse an existing conversation for follow-ups)
-        Conversation conversation = conversationRepository.save(
-                Conversation.builder()
-                        .tenantId(tenantId)
-                        .userId(userId)
-                        .title(truncateTitle(question)) // first question becomes the title
-                        .build());
-
+        UUID convId = conversationId;
+        if (convId == null) {
+            Conversation conversation = conversationRepository.save(
+                    Conversation.builder()
+                            .tenantId(tenantId).userId(userId)
+                            .title(truncateTitle(question)).build());
+            convId = conversation.getId();
+        }
 
         // 2. Save the user's question
         messageRepository.save(Message.builder()
-                .conversationId(conversation.getId())
+                .conversationId(convId)
                 .tenantId(tenantId)
                 .role("user")
                 .content(question)
@@ -51,7 +64,7 @@ public class ConversationService {
 
         //3. Save the assistant's answer
         Message assistantMessage = messageRepository.save(Message.builder()
-                .conversationId(conversation.getId())
+                .conversationId(convId)
                 .tenantId(tenantId)
                 .role("assistant")
                 .content(answer)
@@ -67,9 +80,9 @@ public class ConversationService {
         }
 
         log.info("Saved conversation {} with {} cited sources",
-                conversation.getId(), citedChunks.size());
+                convId, citedChunks.size());
 
-        return conversation.getId();
+        return convId;
 
     }
 

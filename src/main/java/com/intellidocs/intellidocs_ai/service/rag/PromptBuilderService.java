@@ -5,6 +5,7 @@ package com.intellidocs.intellidocs_ai.service.rag;
 // prompt string for the LLM. This is the "Augmented" step in RAG:
 // we augment the model's prompt with our own document context.
 
+import com.intellidocs.intellidocs_ai.domain.entity.Message;
 import com.intellidocs.intellidocs_ai.service.search.SearchService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,7 +26,7 @@ public class PromptBuilderService {
             Do not make up information.
             """;
 
-    public String buildPrompt(String question, List<SearchService.ScoredChunk> retrievedChunks) {
+    public String buildPrompt(String question, List<SearchService.ScoredChunk> retrievedChunks, List<Message> history) {
         // If retrieval found nothing (all below threshold), there's no context.
         // We still build a prompt, but the LLM will correctly say "I don't know".
         if(retrievedChunks == null || retrievedChunks.size() == 0){
@@ -33,6 +34,17 @@ public class PromptBuilderService {
         }
         StringBuilder promptBuilder = new StringBuilder();
         promptBuilder.append(SYSTEM_INSTRUCTION).append("\n");
+
+        // NEW: prior conversation, so follow-ups make sense
+        if (history != null && !history.isEmpty()) {
+            promptBuilder.append("Conversation so far:\n");
+            for (Message m : history) {
+                promptBuilder.append(m.getRole().equals("user") ? "User: " : "Assistant: ")
+                        .append(m.getContent().trim()).append("\n");
+            }
+            promptBuilder.append("\n");
+        }
+
         promptBuilder.append("Context:\n");
 
         // Number each chunk so the context is readable and traceable.

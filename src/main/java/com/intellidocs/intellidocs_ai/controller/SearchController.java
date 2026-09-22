@@ -2,6 +2,7 @@ package com.intellidocs.intellidocs_ai.controller;
 
 import com.intellidocs.intellidocs_ai.common.ApiResponse;
 import com.intellidocs.intellidocs_ai.domain.entity.DocumentChunk;
+import com.intellidocs.intellidocs_ai.domain.entity.Message;
 import com.intellidocs.intellidocs_ai.dto.SearchResultDto;
 import com.intellidocs.intellidocs_ai.service.document.EmbeddingService;
 import com.intellidocs.intellidocs_ai.service.rag.ChatService;
@@ -84,37 +85,51 @@ public class SearchController {
 
     //add this method - Day 11: preview the assembled RAG prompt (no LLM call yet)
     @GetMapping("/rag-preview")
-    public ResponseEntity<ApiResponse<String>> ragPreview(@RequestParam String query) {
+    public ResponseEntity<ApiResponse<String>> ragPreview(@RequestParam String query,  @RequestParam(required = false) UUID conversationId) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
 
         float[] queryVector = embeddingService.embed(query);
         // Reuse Day 9's threshold-filtered semantic search as the context source
         var chunks = searchService.semanticSearch(tenantId, queryVector);
-        String prompt = promptBuilderService.buildPrompt(query, chunks);
+        // load recent history if continuing a conversation
+        List<Message> history = (conversationId != null)
+                ? conversationService.getRecentHistory(conversationId)
+                : List.of();
+        String prompt = promptBuilderService.buildPrompt(query, chunks, history);
+
         return ResponseEntity.ok(ApiResponse.ok(chunks.size() + " chunks used", prompt));
 
     }
 
     //Day 12: Full RAG - Retrive -> build prompt -> generate answer
     @GetMapping("/ask")
-    public ResponseEntity<ApiResponse<String>> ask(@RequestParam String query) {
+    public ResponseEntity<ApiResponse<String>> ask(
+                                                    @RequestParam String query,
+                                                     @RequestParam(required = false) UUID conversationId) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
         UUID userId = UUID.fromString(
                 SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString()); // In real app, store userId in auth token and set in SecurityContext
 
+        // load recent history if continuing a conversation
+        List<Message> history = (conversationId != null)
+                ? conversationService.getRecentHistory(conversationId)
+                : List.of();
+
         //1. RETRIVE( threshold-filtered)
         float[] queryVector = embeddingService.embed(query);
-        List<SearchService.ScoredChunk> retrivedChunks = searchService.semanticSearch(tenantId, queryVector);
+        List<SearchService.ScoredChunk> retrievedChunks = searchService.semanticSearch(tenantId, queryVector);
 
         //2. AUGMENT (build prompt)
-        String prompt = promptBuilderService.buildPrompt(query, retrivedChunks);
+        String prompt = promptBuilderService.buildPrompt(query, retrievedChunks, history);
 
         //3. GENERATE(LLM answers)
         String answer = chatService.generateAnswer(prompt);
 
-        conversationService.saveTurn(tenantId, userId, query, answer, retrivedChunks);
 
-        return ResponseEntity.ok(ApiResponse.ok("Answer generated", answer));
+        UUID convId = conversationService.saveTurn(
+                tenantId, userId, conversationId, query, answer, retrievedChunks);
+        // return the answer AND the conversationId so the client can send follow-ups
+        return ResponseEntity.ok(ApiResponse.ok("conversationId=" + convId, answer));
     }
 
 
