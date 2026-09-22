@@ -5,11 +5,13 @@ import com.intellidocs.intellidocs_ai.domain.entity.DocumentChunk;
 import com.intellidocs.intellidocs_ai.dto.SearchResultDto;
 import com.intellidocs.intellidocs_ai.service.document.EmbeddingService;
 import com.intellidocs.intellidocs_ai.service.rag.ChatService;
+import com.intellidocs.intellidocs_ai.service.rag.ConversationService;
 import com.intellidocs.intellidocs_ai.service.rag.PromptBuilderService;
 import com.intellidocs.intellidocs_ai.service.search.SearchService;
 import com.intellidocs.intellidocs_ai.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -28,6 +30,7 @@ public class SearchController {
     private final ChatService chatService;
     // add to the field list at the top of SearchController:
     private final PromptBuilderService promptBuilderService;
+    private final ConversationService conversationService;
 
     /// Lexical search — keyword matching
     @GetMapping("/lexical")
@@ -96,6 +99,8 @@ public class SearchController {
     @GetMapping("/ask")
     public ResponseEntity<ApiResponse<String>> ask(@RequestParam String query) {
         UUID tenantId = UUID.fromString(TenantContext.getTenantId());
+        UUID userId = UUID.fromString(
+                SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString()); // In real app, store userId in auth token and set in SecurityContext
 
         //1. RETRIVE( threshold-filtered)
         float[] queryVector = embeddingService.embed(query);
@@ -106,6 +111,8 @@ public class SearchController {
 
         //3. GENERATE(LLM answers)
         String answer = chatService.generateAnswer(prompt);
+
+        conversationService.saveTurn(tenantId, userId, query, answer, retrivedChunks);
 
         return ResponseEntity.ok(ApiResponse.ok("Answer generated", answer));
     }
